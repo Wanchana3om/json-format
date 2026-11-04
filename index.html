@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="th">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light">
+    <meta name="referrer" content="no-referrer">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' file:; script-src 'self' file:; style-src 'self' file:; img-src 'self' file: data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+    <title>JSON Format</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="lucide.min.js" defer></script>
+    <script src="acorn.js" defer></script>
+    <script src="formatter.js" defer></script>
+    <script src="app.js" defer></script>
+  </head>
+  <body>
+    <div class="app">
+      <header class="app-header">
+        <div class="brand">
+          <div class="brand-mark" aria-hidden="true">{ }</div>
+          <div>
+            <h1>JSON Format<span class="brand-dot">.</span></h1>
+            <span class="brand-caption">JSON / LOG WORKSPACE</span>
+          </div>
+        </div>
+        <span class="local-badge" title="ข้อมูลอยู่ในเบราว์เซอร์ ไม่ส่งไปยังเซิร์ฟเวอร์">
+          <i data-lucide="shield-check" aria-hidden="true"></i>
+          LOCAL ONLY
+        </span>
+      </header>
+
+      <main>
+        <form id="formatter-form" novalidate>
+          <div class="workspace-toolbar">
+            <h2>พื้นที่ทำงาน <span class="workspace-tag">JSON / LOG / MONGO</span></h2>
+            <div class="format-controls">
+              <label class="scope-control" for="format-scope">รูปแบบ
+                <select id="format-scope" name="format-scope">
+                  <option value="whole">ทั้งข้อความ</option>
+                  <option value="data">เฉพาะข้อมูล</option>
+                </select>
+              </label>
+              <label class="validation-control"><input id="validate-json" type="checkbox">ตรวจโครงสร้าง</label>
+              <label class="indent-control" for="indent">ระยะเยื้อง
+                <select id="indent" name="indent">
+                  <option value="2">2 spaces</option>
+                  <option value="4">4 spaces</option>
+                </select>
+              </label>
+              <button id="minify-button" class="icon-button" type="button" aria-label="ย่อ JSON" title="ย่อ JSON / Remove white space">
+                <i data-lucide="minimize-2" aria-hidden="true"></i>
+              </button>
+              <button class="primary-button" type="submit" title="จัดรูปแบบ (Ctrl + Enter)">
+                <i data-lucide="list-tree" aria-hidden="true"></i>
+                จัดรูปแบบ
+              </button>
+            </div>
+          </div>
+
+          <div class="editors">
+            <section class="editor-pane input-pane" aria-labelledby="input-heading">
+              <div class="pane-toolbar">
+                <h3 id="input-heading"><span class="pane-index">01</span><label for="source">ต้นฉบับ</label></h3>
+                <div class="pane-actions">
+                  <button id="example-button" class="quiet-button" type="button" title="โหลดข้อมูลตัวอย่าง">
+                    <i data-lucide="file-code-2" aria-hidden="true"></i><span>ตัวอย่าง</span>
+                  </button>
+                  <button id="paste-button" class="icon-button" type="button" aria-label="วางจากคลิปบอร์ด" title="วางจากคลิปบอร์ด">
+                    <i data-lucide="clipboard-paste" aria-hidden="true"></i>
+                  </button>
+                  <button id="import-button" class="icon-button" type="button" aria-label="เปิดไฟล์ JSON, log หรือ MongoDB" title="เปิดไฟล์ JSON, log หรือ MongoDB">
+                    <i data-lucide="folder-open" aria-hidden="true"></i>
+                  </button>
+                  <input id="file-input" type="file" accept=".json,.json5,.log,.txt,.bson,.js,application/json,text/plain" hidden>
+                  <span class="action-divider" aria-hidden="true"></span>
+                  <button id="wrap-button" class="icon-button" type="button" aria-label="ตัดบรรทัด" aria-pressed="true" title="ตัดบรรทัด">
+                    <i data-lucide="wrap-text" aria-hidden="true"></i>
+                  </button>
+                  <button id="clear-button" class="icon-button" type="button" aria-label="ล้างข้อมูล" title="ล้างข้อมูล">
+                    <i data-lucide="trash-2" aria-hidden="true"></i>
+                  </button>
+                </div>
+              </div>
+              <div class="editor-body">
+                <textarea id="source" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off" aria-describedby="status" placeholder="{&#10;  &quot;message&quot;: &quot;Hello, JSON&quot;,&#10;  &quot;ready&quot;: true&#10;}" wrap="soft"></textarea>
+              </div>
+              <div class="pane-footer"><span id="source-count">0 ตัวอักษร</span><span>INPUT</span></div>
+            </section>
+
+            <section class="editor-pane output-pane" aria-labelledby="output-heading">
+              <div class="pane-toolbar">
+                <h3 id="output-heading"><span class="pane-index">02</span><label for="output">ผลลัพธ์</label></h3>
+                <div class="pane-actions">
+                  <span id="block-count" class="block-count" hidden></span>
+                  <button id="copy-button" class="icon-button" type="button" aria-label="คัดลอกผลลัพธ์" title="คัดลอกผลลัพธ์" disabled>
+                    <i data-lucide="copy" aria-hidden="true"></i>
+                  </button>
+                  <button id="download-button" class="icon-button" type="button" aria-label="ดาวน์โหลดผลลัพธ์" title="ดาวน์โหลดผลลัพธ์" disabled>
+                    <i data-lucide="download" aria-hidden="true"></i>
+                  </button>
+                </div>
+              </div>
+              <div class="editor-body output-body">
+                <div class="output-navigation" role="tablist" aria-label="มุมมองผลลัพธ์">
+                  <button id="text-tab" class="view-tab" type="button" role="tab" aria-selected="true" aria-controls="text-panel">Text</button>
+                  <button id="viewer-tab" class="view-tab" type="button" role="tab" aria-selected="false" aria-controls="viewer-panel" tabindex="-1">Viewer</button>
+                </div>
+                <div class="output-content">
+                  <div id="text-panel" role="tabpanel" aria-labelledby="text-tab">
+                    <textarea id="output" readonly spellcheck="false" wrap="soft"></textarea>
+                  </div>
+                  <div id="viewer-panel" role="tabpanel" aria-labelledby="viewer-tab" hidden>
+                    <div class="tree-toolbar">
+                      <input id="tree-search" type="search" aria-label="ค้นหา key หรือค่า" placeholder="ค้นหา key หรือค่า" autocomplete="off">
+                      <span id="search-count" aria-live="polite"></span>
+                      <button id="expand-button" class="icon-button" type="button" aria-label="ขยายทั้งหมด" title="ขยายทั้งหมด"><i data-lucide="list-plus" aria-hidden="true"></i></button>
+                      <button id="collapse-button" class="icon-button" type="button" aria-label="ยุบทั้งหมด" title="ยุบทั้งหมด"><i data-lucide="list-minus" aria-hidden="true"></i></button>
+                    </div>
+                    <div id="json-tree" class="json-tree" tabindex="0" aria-label="JSON tree"></div>
+                  </div>
+                  <div id="empty-state" class="empty-state" aria-hidden="true"><span>{ }</span><span>OUTPUT</span></div>
+                </div>
+              </div>
+              <div class="pane-footer"><span id="output-count">0 บรรทัด</span><span>OUTPUT</span></div>
+            </section>
+          </div>
+
+          <div class="status-bar">
+            <p id="status" role="status" aria-live="polite" aria-atomic="true"><span class="status-dot" aria-hidden="true"></span><span id="status-text">พร้อม</span></p>
+            <span class="encoding">UTF-8</span>
+          </div>
+        </form>
+      </main>
+      <footer class="app-footer"><span>JSON FORMAT</span><span class="footer-mark" aria-hidden="true">{ / }</span><span>V 1.0</span></footer>
+    </div>
+  </body>
+</html>
