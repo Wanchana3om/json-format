@@ -60,7 +60,7 @@
           <div class="editors">
             <section class="editor-pane input-pane" aria-labelledby="input-heading">
               <div class="pane-toolbar">
-                <h3 id="input-heading"><span class="pane-index">01</span><label for="source">ต้นฉบับ</label></h3>
+                <h3 id="input-heading"><label for="source">ข้อความ</label></h3>
                 <div class="pane-actions">
                   <button id="example-button" class="quiet-button" type="button" title="โหลดข้อมูลตัวอย่าง">
                     <i data-lucide="file-code-2" aria-hidden="true"></i><span>ตัวอย่าง</span>
@@ -79,19 +79,6 @@
                   <button id="clear-button" class="icon-button" type="button" aria-label="ล้างข้อมูล" title="ล้างข้อมูล">
                     <i data-lucide="trash-2" aria-hidden="true"></i>
                   </button>
-                </div>
-              </div>
-              <div class="editor-body">
-                <textarea id="source" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off" aria-describedby="status" placeholder="{&#10;  &quot;message&quot;: &quot;Hello, JSON&quot;,&#10;  &quot;ready&quot;: true&#10;}" wrap="soft"></textarea>
-              </div>
-              <div class="pane-footer"><span id="source-count">0 ตัวอักษร</span><span>INPUT</span></div>
-            </section>
-
-            <section class="editor-pane output-pane" aria-labelledby="output-heading">
-              <div class="pane-toolbar">
-                <h3 id="output-heading"><span class="pane-index">02</span><label for="output">ผลลัพธ์</label></h3>
-                <div class="pane-actions">
-                  <span id="block-count" class="block-count" hidden></span>
                   <button id="copy-button" class="icon-button" type="button" aria-label="คัดลอกผลลัพธ์" title="คัดลอกผลลัพธ์" disabled>
                     <i data-lucide="copy" aria-hidden="true"></i>
                   </button>
@@ -101,13 +88,13 @@
                 </div>
               </div>
               <div class="editor-body output-body">
-                <div class="output-navigation" role="tablist" aria-label="มุมมองผลลัพธ์">
+                <div class="output-navigation" role="tablist" aria-label="มุมมองข้อความ">
                   <button id="text-tab" class="view-tab" type="button" role="tab" aria-selected="true" aria-controls="text-panel">Text</button>
                   <button id="viewer-tab" class="view-tab" type="button" role="tab" aria-selected="false" aria-controls="viewer-panel" tabindex="-1">Viewer</button>
                 </div>
                 <div class="output-content">
                   <div id="text-panel" role="tabpanel" aria-labelledby="text-tab">
-                    <textarea id="output" readonly spellcheck="false" wrap="soft"></textarea>
+                    <textarea id="source" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off" aria-describedby="status" placeholder="{&#10;  &quot;message&quot;: &quot;Hello, JSON&quot;,&#10;  &quot;ready&quot;: true&#10;}" wrap="soft"></textarea>
                   </div>
                   <div id="viewer-panel" role="tabpanel" aria-labelledby="viewer-tab" hidden>
                     <div class="tree-toolbar">
@@ -118,10 +105,9 @@
                     </div>
                     <div id="json-tree" class="json-tree" tabindex="0" aria-label="JSON tree"></div>
                   </div>
-                  <div id="empty-state" class="empty-state" aria-hidden="true"><span>{ }</span><span>OUTPUT</span></div>
                 </div>
               </div>
-              <div class="pane-footer"><span id="output-count">0 บรรทัด</span><span>OUTPUT</span></div>
+              <div class="pane-footer"><span id="source-count">0 ตัวอักษร</span><span id="block-count" class="block-count" hidden></span><span id="output-count">0 บรรทัด</span></div>
             </section>
           </div>
 
