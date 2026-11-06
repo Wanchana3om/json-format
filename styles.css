@@ -9,6 +9,7 @@
   --hover-background: #edf2ef;
   --muted: #78827f;
   --border: #dce3df;
+  --editor-text: #111111;
   --mono: "Cascadia Code", Consolas, monospace;
 }
 
@@ -26,7 +27,6 @@ body[data-mode="base64"] {
   --hover-background: #edf2fc;
   --border: #dce2ea;
 }
-body[data-mode="base64"] textarea { color: #29364d; }
 body[data-mode="compare"] {
   --accent: #b13e5e;
   --accent-dark: #922c49;
@@ -135,7 +135,7 @@ h3 { display: flex; align-items: center; gap: 9px; margin: 0; font-size: 13px; f
 .tree-type { color: #8a958e; font-size: 11px; }
 .search-match { background: #fff0ac; border-radius: 2px; }
 .input-pane.is-dragging { outline: 2px solid var(--accent); outline-offset: -2px; }
-textarea { display: block; resize: none; width: 100%; height: 100%; margin: 0; border: 0; border-radius: 0; padding: 22px; background: transparent; color: #303e35; font: 12px/1.9 var(--mono); tab-size: 2; overflow: auto; }
+textarea { display: block; resize: none; width: 100%; height: 100%; margin: 0; border: 0; border-radius: 0; padding: 22px; background: transparent; color: var(--editor-text); font: 12px/1.9 var(--mono); tab-size: 2; overflow: auto; }
 textarea::placeholder { color: #a7b2ab; opacity: 1; }
 textarea:focus-visible { outline-offset: -2px; }
 textarea[aria-invalid="true"] { outline: 2px solid #c24e42; outline-offset: -2px; }
@@ -170,7 +170,7 @@ textarea[aria-invalid="true"] { outline: 2px solid #c24e42; outline-offset: -2px
 .diff-cell { display: grid; grid-template-columns: 42px minmax(0, 1fr) 32px; align-items: start; gap: 6px; min-width: 0; padding: 3px 10px 3px 0; }
 .diff-cell:first-child { border-right: 1px solid var(--border); }
 .diff-number { padding-right: 8px; text-align: right; color: #8b9690; user-select: none; }
-.diff-text { white-space: pre-wrap; overflow-wrap: anywhere; tab-size: 2; }
+.diff-text { color: var(--editor-text); white-space: pre-wrap; overflow-wrap: anywhere; tab-size: 2; }
 .diff-ending { color: #8b9690; font-size: 9px; text-align: right; user-select: none; }
 .diff-row[data-kind="added"] .diff-right,
 .diff-row[data-kind="changed"] .diff-right { background: #eaf5ee; }
