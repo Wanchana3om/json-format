@@ -295,7 +295,20 @@
     return documents;
   }
 
-  const api = { formatText, minifyText, formatLooseText, formatWholeText, getDocuments, getTree };
+  function encodeBase64(text) {
+    const bytes = new TextEncoder().encode(text);
+    let binary = "";
+    for (const byte of bytes) binary += String.fromCharCode(byte);
+    return btoa(binary);
+  }
+
+  function decodeBase64(text) {
+    const binary = atob(text);
+    const bytes = Uint8Array.from(binary, character => character.charCodeAt(0));
+    return new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(bytes);
+  }
+
+  const api = { formatText, minifyText, formatLooseText, formatWholeText, getDocuments, getTree, encodeBase64, decodeBase64 };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.JSONFormatter = api;
 })(globalThis);

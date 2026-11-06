@@ -10,8 +10,15 @@
   const tree = document.querySelector("#json-tree");
   const treeSearch = document.querySelector("#tree-search");
   const fileInput = document.querySelector("#file-input");
+  const form = document.querySelector("#formatter-form");
+  const workspaceToolbar = document.querySelector("#workspace-toolbar");
+  const toolbarToggle = document.querySelector("#toolbar-toggle");
+  const jsonPlaceholder = source.placeholder;
+  const jsonFileTypes = fileInput.accept;
   const treeLoaders = new WeakMap();
+  let currentMode = "json";
   let outputMode = "json";
+  let formattedBlocks = 0;
   let hasFormatted = false;
   let viewerSource = "";
   let currentView = "text";
@@ -27,6 +34,17 @@
     status.dataset.tone = tone;
   }
 
+  function updateToolbarSpace() {
+    if (!workspaceToolbar.hidden) {
+      form.style.removeProperty("--toolbar-space");
+      return;
+    }
+    workspaceToolbar.hidden = false;
+    const height = workspaceToolbar.getBoundingClientRect().height;
+    workspaceToolbar.hidden = true;
+    form.style.setProperty("--toolbar-space", height + "px");
+  }
+
   function updateSourceCount() {
     document.querySelector("#source-count").textContent = source.value.length.toLocaleString("th-TH") + " ตัวอักษร";
     document.querySelector("#output-count").textContent = (source.value ? source.value.split("\n").length : 0).toLocaleString("th-TH") + " บรรทัด";
@@ -34,6 +52,7 @@
 
   function resetResult() {
     hasFormatted = false;
+    formattedBlocks = 0;
     tree.replaceChildren();
     treeSearch.value = "";
     document.querySelector("#search-count").textContent = "";
@@ -66,6 +85,7 @@
       hasFormatted = true;
       updateSourceCount();
       outputMode = result.mode;
+      formattedBlocks = result.blocks;
       copyButton.disabled = false;
       downloadButton.disabled = false;
       blockCount.textContent = result.blocks + (result.mode === "object" ? " OBJECT" : validate ? " JSON" : " BLOCK");
@@ -78,6 +98,59 @@
       showView("text");
       source.focus();
     }
+  }
+
+  function convertBase64(action) {
+    const encode = action === "encode";
+    if (!source.value || (!encode && !source.value.trim())) {
+      setStatus(encode ? "กรุณาวางข้อความก่อน Encode" : "กรุณาวาง Base64 ก่อน Decode", "error");
+      source.focus();
+      return;
+    }
+    try {
+      const api = globalThis.JSONFormatter;
+      const result = encode ? api.encodeBase64(source.value) : api.decodeBase64(source.value);
+      resetResult();
+      source.value = result;
+      outputMode = encode ? "base64" : "text";
+      updateSourceCount();
+      showView("text");
+      copyButton.disabled = !result;
+      downloadButton.disabled = !result;
+      setStatus(encode ? "Encode Base64 แล้ว" : "Decode Base64 แล้ว", "success");
+      source.focus();
+    } catch {
+      source.setAttribute("aria-invalid", "true");
+      setStatus(encode ? "Encode Base64 ไม่ได้" : "Decode ไม่ได้: Base64 ไม่ถูกต้อง หรือข้อมูลไม่ใช่ข้อความ UTF-8", "error");
+      source.focus();
+    }
+  }
+
+  function setMode(mode) {
+    currentMode = mode;
+    const base64 = mode === "base64";
+    document.body.dataset.mode = mode;
+    document.title = base64 ? "Base64" : "JSON Format";
+    document.querySelector("#brand-title").textContent = document.title;
+    document.querySelector(".brand-mark").textContent = base64 ? "64" : "{ }";
+    document.querySelector(".brand-caption").textContent = base64 ? "ENCODE / DECODE WORKSPACE" : "JSON / LOG WORKSPACE";
+    document.querySelector(".workspace-tag").textContent = base64 ? "BASE64 / UTF-8" : "JSON / LOG / MONGO";
+    document.querySelector("#json-controls").hidden = base64;
+    document.querySelector("#base64-controls").hidden = !base64;
+    document.querySelector("#view-navigation").hidden = base64;
+    document.querySelector(".encoding").textContent = base64 ? "UTF-8 / BASE64" : "UTF-8";
+    source.placeholder = base64 ? "สวัสดี Base64" : jsonPlaceholder;
+    fileInput.accept = base64 ? ".b64,.base64,.txt,.json,text/plain,application/json" : jsonFileTypes;
+    const importButton = document.querySelector("#import-button");
+    importButton.title = base64 ? "เปิดไฟล์ข้อความหรือ Base64" : "เปิดไฟล์ JSON, log หรือ MongoDB";
+    importButton.setAttribute("aria-label", importButton.title);
+    blockCount.hidden = base64 || !hasFormatted || !formattedBlocks;
+    copyButton.disabled = !source.value || (!base64 && !hasFormatted);
+    downloadButton.disabled = copyButton.disabled;
+    source.removeAttribute("aria-invalid");
+    showView("text");
+    updateToolbarSpace();
+    setStatus("พร้อม");
   }
 
   function appendKey(row, key) {
@@ -155,6 +228,7 @@
   }
 
   function showView(view) {
+    if (currentMode === "base64") view = "text";
     if (view === "viewer") {
       if (!hasFormatted) {
         format();
@@ -206,7 +280,13 @@
     updateSourceCount();
     resetResult();
     showView("text");
-    format();
+    if (currentMode === "json") format();
+    else {
+      outputMode = "text";
+      copyButton.disabled = !text;
+      downloadButton.disabled = !text;
+      setStatus("พร้อม");
+    }
   }
 
   async function loadFile(file) {
@@ -218,21 +298,36 @@
     }
   }
 
-  document.querySelector("#formatter-form").addEventListener("submit", (event) => {
+  toolbarToggle.addEventListener("click", () => {
+    workspaceToolbar.hidden = !workspaceToolbar.hidden;
+    toolbarToggle.setAttribute("aria-expanded", String(!workspaceToolbar.hidden));
+    toolbarToggle.title = workspaceToolbar.hidden ? "แสดงแถบเครื่องมือ" : "ซ่อนแถบเครื่องมือ";
+    toolbarToggle.setAttribute("aria-label", toolbarToggle.title);
+    updateToolbarSpace();
+  });
+  globalThis.addEventListener("resize", updateToolbarSpace);
+
+  form.addEventListener("submit", (event) => {
     event.preventDefault();
-    format();
+    if (currentMode === "base64") convertBase64("encode");
+    else format();
   });
 
   source.addEventListener("input", () => {
     updateSourceCount();
     resetResult();
+    if (currentMode === "base64") {
+      outputMode = "text";
+      copyButton.disabled = !source.value;
+      downloadButton.disabled = !source.value;
+    }
     setStatus("พร้อม");
   });
 
   source.addEventListener("keydown", (event) => {
     if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
       event.preventDefault();
-      format();
+      document.querySelector("#formatter-form").requestSubmit();
     }
   });
 
@@ -247,6 +342,12 @@
     if (source.value.trim()) format(lastAction);
   });
   document.querySelector("#minify-button").addEventListener("click", () => format("minify"));
+  for (const radio of document.querySelectorAll('input[name="tool-mode"]')) {
+    radio.addEventListener("change", () => { if (radio.checked) setMode(radio.value); });
+  }
+  for (const action of ["encode", "decode"]) {
+    document.querySelector("#" + action + "-base64-button").addEventListener("click", () => convertBase64(action));
+  }
   for (const name of ["text", "viewer"]) {
     const tab = document.querySelector("#" + name + "-tab");
     tab.addEventListener("click", () => showView(name));
@@ -307,6 +408,10 @@
   });
 
   document.querySelector("#example-button").addEventListener("click", () => {
+    if (currentMode === "base64") {
+      replaceSource("สวัสดี Base64");
+      return;
+    }
     replaceSource('2026-11-02T13:46:12.907+07:00 [INFO] [APIInterceptor] INCOMING|METHOD|POST|PATHNAME|/action/queryOrderInformation|BODY|{"transactionID":"demo","orderNo":"ORDER-001","mobileNo":"","referChannel":"WEB"}|HEADERS|{"host":"api.example.test","content-type":"application/json","x-request-id":"demo-request-001"}');
   });
 
@@ -339,12 +444,12 @@
 
   downloadButton.addEventListener("click", () => {
     if (!source.value) return;
-    const isJson = outputMode === "json";
+    const isJson = currentMode === "json" && outputMode === "json";
     const blob = new Blob([source.value], { type: isJson ? "application/json;charset=utf-8" : "text/plain;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = isJson ? "formatted.json" : outputMode === "object" ? "formatted-object.txt" : "formatted-log.txt";
+    anchor.download = currentMode === "base64" ? outputMode === "base64" ? "encoded-base64.txt" : "decoded-text.txt" : isJson ? "formatted.json" : outputMode === "object" ? "formatted-object.txt" : "formatted-log.txt";
     document.body.append(anchor);
     anchor.click();
     anchor.remove();

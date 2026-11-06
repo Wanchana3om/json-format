@@ -13,15 +13,25 @@
     <script src="formatter.js" defer></script>
     <script src="app.js" defer></script>
   </head>
-  <body>
+  <body data-mode="json">
     <div class="app">
       <header class="app-header">
         <div class="brand">
           <div class="brand-mark" aria-hidden="true">{ }</div>
           <div>
-            <h1>JSON Format<span class="brand-dot">.</span></h1>
+            <h1><span id="brand-title">JSON Format</span><span class="brand-dot">.</span></h1>
             <span class="brand-caption">JSON / LOG WORKSPACE</span>
           </div>
+        </div>
+        <div class="mode-switch" role="group" aria-label="โหมดเครื่องมือ">
+          <label class="mode-choice">
+            <input id="json-mode" type="radio" name="tool-mode" value="json" checked>
+            <span class="mode-option"><i data-lucide="braces" aria-hidden="true"></i>JSON Format</span>
+          </label>
+          <label class="mode-choice">
+            <input id="base64-mode" type="radio" name="tool-mode" value="base64">
+            <span class="mode-option"><i data-lucide="binary" aria-hidden="true"></i>Base64</span>
+          </label>
         </div>
         <span class="local-badge" title="ข้อมูลอยู่ในเบราว์เซอร์ ไม่ส่งไปยังเซิร์ฟเวอร์">
           <i data-lucide="shield-check" aria-hidden="true"></i>
@@ -31,9 +41,9 @@
 
       <main>
         <form id="formatter-form" novalidate>
-          <div class="workspace-toolbar">
+          <div id="workspace-toolbar" class="workspace-toolbar">
             <h2>พื้นที่ทำงาน <span class="workspace-tag">JSON / LOG / MONGO</span></h2>
-            <div class="format-controls">
+            <div id="json-controls" class="format-controls">
               <label class="scope-control" for="format-scope">รูปแบบ
                 <select id="format-scope" name="format-scope">
                   <option value="whole">ทั้งข้อความ</option>
@@ -55,12 +65,26 @@
                 จัดรูปแบบ
               </button>
             </div>
+            <div id="base64-controls" class="format-controls base64-controls" hidden>
+              <button id="encode-base64-button" class="secondary-button" type="button" title="Encode ข้อความ UTF-8 เป็น Base64 (Ctrl + Enter)">
+                <i data-lucide="binary" aria-hidden="true"></i>Encode
+              </button>
+              <button id="decode-base64-button" class="primary-button" type="button" title="Decode Base64 เป็นข้อความ UTF-8">
+                <i data-lucide="text" aria-hidden="true"></i>Decode
+              </button>
+            </div>
           </div>
 
           <div class="editors">
             <section class="editor-pane input-pane" aria-labelledby="input-heading">
               <div class="pane-toolbar">
-                <h3 id="input-heading"><label for="source">ข้อความ</label></h3>
+                <div class="pane-heading">
+                  <button id="toolbar-toggle" class="icon-button" type="button" aria-label="ซ่อนแถบเครื่องมือ" title="ซ่อนแถบเครื่องมือ" aria-controls="workspace-toolbar" aria-expanded="true">
+                    <i data-lucide="panel-top-close" class="collapse-toolbar-icon" aria-hidden="true"></i>
+                    <i data-lucide="panel-top-open" class="expand-toolbar-icon" aria-hidden="true"></i>
+                  </button>
+                  <h3 id="input-heading"><label for="source">ข้อความ</label></h3>
+                </div>
                 <div class="pane-actions">
                   <button id="example-button" class="quiet-button" type="button" title="โหลดข้อมูลตัวอย่าง">
                     <i data-lucide="file-code-2" aria-hidden="true"></i><span>ตัวอย่าง</span>
@@ -88,7 +112,7 @@
                 </div>
               </div>
               <div class="editor-body output-body">
-                <div class="output-navigation" role="tablist" aria-label="มุมมองข้อความ">
+                <div id="view-navigation" class="output-navigation" role="tablist" aria-label="มุมมองข้อความ">
                   <button id="text-tab" class="view-tab" type="button" role="tab" aria-selected="true" aria-controls="text-panel">Text</button>
                   <button id="viewer-tab" class="view-tab" type="button" role="tab" aria-selected="false" aria-controls="viewer-panel" tabindex="-1">Viewer</button>
                 </div>
@@ -117,7 +141,6 @@
           </div>
         </form>
       </main>
-      <footer class="app-footer"><span>JSON FORMAT</span><span class="footer-mark" aria-hidden="true">{ / }</span><span>V 1.0</span></footer>
     </div>
   </body>
 </html>
