@@ -10,6 +10,7 @@
     <link rel="stylesheet" href="styles.css">
     <script src="lucide.min.js" defer></script>
     <script src="acorn.js" defer></script>
+    <script src="diff.js" defer></script>
     <script src="formatter.js" defer></script>
     <script src="app.js" defer></script>
   </head>
@@ -17,7 +18,7 @@
     <div class="app">
       <header class="app-header">
         <div class="brand">
-          <div class="brand-mark" aria-hidden="true">{ }</div>
+          <div class="brand-mark" aria-hidden="true"><span class="brand-json">{ }</span><i data-lucide="binary" class="brand-binary" aria-hidden="true"></i><i data-lucide="columns-2" class="brand-compare" aria-hidden="true"></i></div>
           <div>
             <h1><span id="brand-title">JSON Format</span><span class="brand-dot">.</span></h1>
             <span class="brand-caption">JSON / LOG WORKSPACE</span>
@@ -26,11 +27,15 @@
         <div class="mode-switch" role="group" aria-label="โหมดเครื่องมือ">
           <label class="mode-choice">
             <input id="json-mode" type="radio" name="tool-mode" value="json" checked>
-            <span class="mode-option"><i data-lucide="braces" aria-hidden="true"></i>JSON Format</span>
+            <span class="mode-option"><i data-lucide="braces" aria-hidden="true"></i><span class="mode-label-long">JSON Format</span><span class="mode-label-short">JSON</span></span>
           </label>
           <label class="mode-choice">
             <input id="base64-mode" type="radio" name="tool-mode" value="base64">
             <span class="mode-option"><i data-lucide="binary" aria-hidden="true"></i>Base64</span>
+          </label>
+          <label class="mode-choice">
+            <input id="compare-mode" type="radio" name="tool-mode" value="compare">
+            <span class="mode-option"><i data-lucide="columns-2" aria-hidden="true"></i>Compare</span>
           </label>
         </div>
         <span class="local-badge" title="ข้อมูลอยู่ในเบราว์เซอร์ ไม่ส่งไปยังเซิร์ฟเวอร์">
@@ -73,13 +78,20 @@
                 <i data-lucide="text" aria-hidden="true"></i>Decode
               </button>
             </div>
+            <div id="compare-controls" class="format-controls" hidden>
+              <button id="compare-example" class="quiet-button" type="button" title="โหลดตัวอย่างเปรียบเทียบ"><i data-lucide="file-code-2" aria-hidden="true"></i><span>ตัวอย่าง</span></button>
+              <label class="validation-control"><input id="compare-json" type="checkbox">จัดรูปแบบ JSON ก่อนเทียบ</label>
+              <button id="compare-swap" class="icon-button" type="button" aria-label="สลับข้อความสองฝั่ง" title="สลับข้อความสองฝั่ง"><i data-lucide="arrow-left-right" aria-hidden="true"></i></button>
+              <button id="compare-clear" class="icon-button" type="button" aria-label="ล้างข้อความเปรียบเทียบทั้งสองฝั่ง" title="ล้างข้อความทั้งสองฝั่ง"><i data-lucide="trash-2" aria-hidden="true"></i></button>
+              <button id="compare-button" class="primary-button" type="button" title="เปรียบเทียบ (Ctrl + Enter)"><i data-lucide="git-compare-arrows" aria-hidden="true"></i>เปรียบเทียบ</button>
+            </div>
           </div>
 
-          <div class="editors">
+          <div id="single-workspace" class="editors">
             <section class="editor-pane input-pane" aria-labelledby="input-heading">
               <div class="pane-toolbar">
                 <div class="pane-heading">
-                  <button id="toolbar-toggle" class="icon-button" type="button" aria-label="ซ่อนแถบเครื่องมือ" title="ซ่อนแถบเครื่องมือ" aria-controls="workspace-toolbar" aria-expanded="true">
+                  <button id="toolbar-toggle" class="icon-button toolbar-toggle" type="button" aria-label="ซ่อนแถบเครื่องมือ" title="ซ่อนแถบเครื่องมือ" aria-controls="workspace-toolbar" aria-expanded="true">
                     <i data-lucide="panel-top-close" class="collapse-toolbar-icon" aria-hidden="true"></i>
                     <i data-lucide="panel-top-open" class="expand-toolbar-icon" aria-hidden="true"></i>
                   </button>
@@ -132,6 +144,59 @@
                 </div>
               </div>
               <div class="pane-footer"><span id="source-count">0 ตัวอักษร</span><span id="block-count" class="block-count" hidden></span><span id="output-count">0 บรรทัด</span></div>
+            </section>
+          </div>
+
+          <div id="compare-workspace" hidden>
+            <div id="compare-inputs" class="editors compare-inputs">
+              <section class="editor-pane" aria-labelledby="compare-left-heading">
+                <div class="pane-toolbar">
+                  <div class="pane-heading">
+                    <button id="compare-toolbar-toggle" class="icon-button toolbar-toggle" type="button" aria-label="ซ่อนแถบเครื่องมือ" title="ซ่อนแถบเครื่องมือ" aria-controls="workspace-toolbar" aria-expanded="true">
+                      <i data-lucide="panel-top-close" class="collapse-toolbar-icon" aria-hidden="true"></i><i data-lucide="panel-top-open" class="expand-toolbar-icon" aria-hidden="true"></i>
+                    </button>
+                    <h3 id="compare-left-heading"><label for="compare-left">ต้นฉบับ</label></h3>
+                  </div>
+                  <div class="pane-actions">
+                    <button id="compare-left-format" class="icon-button" type="button" aria-label="จัดรูปแบบต้นฉบับ" title="จัดรูปแบบต้นฉบับ"><i data-lucide="list-tree" aria-hidden="true"></i></button>
+                    <button id="compare-left-paste" class="icon-button" type="button" aria-label="วางต้นฉบับจากคลิปบอร์ด" title="วางจากคลิปบอร์ด"><i data-lucide="clipboard-paste" aria-hidden="true"></i></button>
+                    <button id="compare-left-import" class="icon-button" type="button" aria-label="เปิดไฟล์ต้นฉบับ" title="เปิดไฟล์ต้นฉบับ"><i data-lucide="folder-open" aria-hidden="true"></i></button>
+                    <input id="compare-left-file" type="file" accept=".json,.json5,.txt,.log,.js,text/plain,application/json" hidden>
+                    <button id="compare-left-clear" class="icon-button" type="button" aria-label="ล้างต้นฉบับ" title="ล้างต้นฉบับ"><i data-lucide="trash-2" aria-hidden="true"></i></button>
+                  </div>
+                </div>
+                <div class="editor-body"><textarea id="compare-left" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off" placeholder="ต้นฉบับ" aria-describedby="status" wrap="soft"></textarea></div>
+                <div class="pane-footer"><span id="compare-left-count">0 ตัวอักษร</span><span>ORIGINAL</span></div>
+              </section>
+              <section class="editor-pane" aria-labelledby="compare-right-heading">
+                <div class="pane-toolbar">
+                  <h3 id="compare-right-heading"><label for="compare-right">ข้อความใหม่</label></h3>
+                  <div class="pane-actions">
+                    <button id="compare-right-format" class="icon-button" type="button" aria-label="จัดรูปแบบข้อความใหม่" title="จัดรูปแบบข้อความใหม่"><i data-lucide="list-tree" aria-hidden="true"></i></button>
+                    <button id="compare-right-paste" class="icon-button" type="button" aria-label="วางข้อความใหม่จากคลิปบอร์ด" title="วางจากคลิปบอร์ด"><i data-lucide="clipboard-paste" aria-hidden="true"></i></button>
+                    <button id="compare-right-import" class="icon-button" type="button" aria-label="เปิดไฟล์ข้อความใหม่" title="เปิดไฟล์ข้อความใหม่"><i data-lucide="folder-open" aria-hidden="true"></i></button>
+                    <input id="compare-right-file" type="file" accept=".json,.json5,.txt,.log,.js,text/plain,application/json" hidden>
+                    <button id="compare-right-clear" class="icon-button" type="button" aria-label="ล้างข้อความใหม่" title="ล้างข้อความใหม่"><i data-lucide="trash-2" aria-hidden="true"></i></button>
+                  </div>
+                </div>
+                <div class="editor-body"><textarea id="compare-right" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off" placeholder="ข้อความใหม่" aria-describedby="status" wrap="soft"></textarea></div>
+                <div class="pane-footer"><span id="compare-right-count">0 ตัวอักษร</span><span>MODIFIED</span></div>
+              </section>
+            </div>
+            <section id="compare-result" class="compare-result" aria-label="ผลการเปรียบเทียบ" hidden>
+              <div class="pane-toolbar">
+                <div id="compare-summary" class="compare-summary" aria-live="polite"></div>
+                <div class="pane-actions">
+                  <button id="compare-inputs-toggle" class="icon-button compare-inputs-toggle" type="button" aria-label="ซ่อนช่องข้อความ" title="ซ่อนช่องข้อความ" aria-controls="compare-inputs" aria-expanded="true">
+                    <i data-lucide="panel-top-close" class="collapse-inputs-icon" aria-hidden="true"></i><i data-lucide="panel-top-open" class="expand-inputs-icon" aria-hidden="true"></i>
+                  </button>
+                  <span id="compare-position" class="compare-position" aria-live="polite"></span>
+                  <button id="compare-previous" class="icon-button" type="button" aria-label="จุดต่างก่อนหน้า" title="จุดต่างก่อนหน้า" disabled><i data-lucide="chevron-up" aria-hidden="true"></i></button>
+                  <button id="compare-next" class="icon-button" type="button" aria-label="จุดต่างถัดไป" title="จุดต่างถัดไป" disabled><i data-lucide="chevron-down" aria-hidden="true"></i></button>
+                </div>
+              </div>
+              <div class="diff-headings"><span>ต้นฉบับ</span><span>ข้อความใหม่</span></div>
+              <div id="compare-diff" class="compare-diff" tabindex="0" aria-label="บรรทัดที่เหมือนและแตกต่าง"></div>
             </section>
           </div>
 

@@ -12,7 +12,14 @@
   const fileInput = document.querySelector("#file-input");
   const form = document.querySelector("#formatter-form");
   const workspaceToolbar = document.querySelector("#workspace-toolbar");
-  const toolbarToggle = document.querySelector("#toolbar-toggle");
+  const toolbarToggles = Array.from(document.querySelectorAll(".toolbar-toggle"));
+  const compareInputs = { left: document.querySelector("#compare-left"), right: document.querySelector("#compare-right") };
+  const compareInputPanels = document.querySelector("#compare-inputs");
+  const compareInputsToggle = document.querySelector("#compare-inputs-toggle");
+  const compareResult = document.querySelector("#compare-result");
+  const compareDiff = document.querySelector("#compare-diff");
+  let compareGroups = 0;
+  let compareIndex = -1;
   const jsonPlaceholder = source.placeholder;
   const jsonFileTypes = fileInput.accept;
   const treeLoaders = new WeakMap();
@@ -129,16 +136,19 @@
   function setMode(mode) {
     currentMode = mode;
     const base64 = mode === "base64";
+    const compare = mode === "compare";
     document.body.dataset.mode = mode;
-    document.title = base64 ? "Base64" : "JSON Format";
+    document.title = compare ? "Compare" : base64 ? "Base64" : "JSON Format";
     document.querySelector("#brand-title").textContent = document.title;
-    document.querySelector(".brand-mark").textContent = base64 ? "64" : "{ }";
-    document.querySelector(".brand-caption").textContent = base64 ? "ENCODE / DECODE WORKSPACE" : "JSON / LOG WORKSPACE";
-    document.querySelector(".workspace-tag").textContent = base64 ? "BASE64 / UTF-8" : "JSON / LOG / MONGO";
-    document.querySelector("#json-controls").hidden = base64;
+    document.querySelector(".brand-caption").textContent = compare ? "TEXT / JSON DIFF" : base64 ? "ENCODE / DECODE WORKSPACE" : "JSON / LOG WORKSPACE";
+    document.querySelector(".workspace-tag").textContent = compare ? "TEXT / JSON DIFF" : base64 ? "BASE64 / UTF-8" : "JSON / LOG / MONGO";
+    document.querySelector("#json-controls").hidden = mode !== "json";
     document.querySelector("#base64-controls").hidden = !base64;
-    document.querySelector("#view-navigation").hidden = base64;
-    document.querySelector(".encoding").textContent = base64 ? "UTF-8 / BASE64" : "UTF-8";
+    document.querySelector("#compare-controls").hidden = !compare;
+    document.querySelector("#single-workspace").hidden = compare;
+    document.querySelector("#compare-workspace").hidden = !compare;
+    document.querySelector("#view-navigation").hidden = mode !== "json";
+    document.querySelector(".encoding").textContent = compare ? "TEXT / JSON" : base64 ? "UTF-8 / BASE64" : "UTF-8";
     source.placeholder = base64 ? "สวัสดี Base64" : jsonPlaceholder;
     fileInput.accept = base64 ? ".b64,.base64,.txt,.json,text/plain,application/json" : jsonFileTypes;
     const importButton = document.querySelector("#import-button");
@@ -150,7 +160,114 @@
     source.removeAttribute("aria-invalid");
     showView("text");
     updateToolbarSpace();
+    setCompareInputsExpanded(!compareInputPanels.hidden);
     setStatus("พร้อม");
+  }
+
+  function setCompareInputsExpanded(expanded) {
+    if (!expanded && currentMode === "compare") {
+      compareInputPanels.hidden = false;
+      const height = compareInputPanels.getBoundingClientRect().height + 16;
+      compareResult.style.setProperty("--compare-input-space", height + "px");
+    } else {
+      compareResult.style.removeProperty("--compare-input-space");
+    }
+    compareInputPanels.hidden = !expanded;
+    compareInputsToggle.setAttribute("aria-expanded", String(expanded));
+    compareInputsToggle.title = expanded ? "ซ่อนช่องข้อความ" : "แสดงช่องข้อความ";
+    compareInputsToggle.setAttribute("aria-label", compareInputsToggle.title);
+  }
+
+  function invalidateCompare() {
+    setCompareInputsExpanded(true);
+    compareResult.hidden = true;
+    compareDiff.replaceChildren();
+    compareGroups = 0;
+    compareIndex = -1;
+    for (const [side, input] of Object.entries(compareInputs)) {
+      input.removeAttribute("aria-invalid");
+      document.querySelector("#compare-" + side + "-count").textContent = input.value.length.toLocaleString("th-TH") + " ตัวอักษร";
+    }
+    setStatus("พร้อม");
+  }
+
+  function selectDifference(direction = 0) {
+    if (!compareGroups) return;
+    compareIndex = (compareIndex + direction + compareGroups) % compareGroups;
+    for (const row of compareDiff.querySelectorAll(".is-current")) row.classList.remove("is-current");
+    const rows = compareDiff.querySelectorAll('[data-group="' + compareIndex + '"]');
+    for (const row of rows) row.classList.add("is-current");
+    if (rows.length) rows[0].scrollIntoView({ block: "nearest" });
+    document.querySelector("#compare-position").textContent = (compareIndex + 1) + " / " + compareGroups;
+  }
+
+  function runCompare() {
+    const inputsExpanded = !compareInputPanels.hidden;
+    invalidateCompare();
+    try {
+      const normalize = document.querySelector("#compare-json").checked;
+      if (normalize) {
+        for (const [side, input] of Object.entries(compareInputs)) {
+          try { JSON.parse(input.value); }
+          catch {
+            input.setAttribute("aria-invalid", "true");
+            input.focus();
+            throw new SyntaxError((side === "left" ? "ต้นฉบับ" : "ข้อความใหม่") + " ไม่ใช่ JSON ที่ถูกต้อง");
+          }
+        }
+      }
+      const result = globalThis.JSONFormatter.compareText(compareInputs.left.value, compareInputs.right.value, normalize);
+      const fragment = document.createDocumentFragment();
+      for (const entry of result.rows) {
+        const row = document.createElement("div");
+        row.className = "diff-row";
+        row.dataset.kind = entry.kind;
+        if (entry.group !== null) row.dataset.group = String(entry.group);
+        for (const side of ["left", "right"]) {
+          const value = entry[side];
+          const cell = document.createElement("div");
+          cell.className = "diff-cell diff-" + side + (value ? "" : " is-empty");
+          const number = document.createElement("span");
+          number.className = "diff-number";
+          number.textContent = value ? String(value.number) : "";
+          const text = document.createElement("span");
+          text.className = "diff-text";
+          text.textContent = value ? value.text : "";
+          const ending = document.createElement("span");
+          ending.className = "diff-ending";
+          ending.textContent = value && value.ending !== "LF" ? value.ending : "";
+          cell.append(number, text, ending);
+          row.append(cell);
+        }
+        fragment.append(row);
+      }
+      compareDiff.append(fragment);
+      const summary = document.querySelector("#compare-summary");
+      summary.replaceChildren();
+      for (const [kind, label, count] of [["added", "เพิ่ม", result.added], ["removed", "ลบ", result.removed], ["changed", "แก้ไข", result.changed]]) {
+        const badge = document.createElement("span");
+        badge.className = "compare-" + kind;
+        badge.textContent = label + " " + count;
+        summary.append(badge);
+      }
+      if (!result.groups) {
+        const identical = document.createElement("span");
+        identical.className = "compare-identical";
+        identical.textContent = "เหมือนกัน";
+        summary.prepend(identical);
+      }
+      compareResult.hidden = false;
+      setCompareInputsExpanded(inputsExpanded);
+      compareGroups = result.groups;
+      compareIndex = result.groups ? 0 : -1;
+      document.querySelector("#compare-position").textContent = result.groups ? "1 / " + result.groups : "0 / 0";
+      document.querySelector("#compare-previous").disabled = !result.groups;
+      document.querySelector("#compare-next").disabled = !result.groups;
+      if (result.groups) selectDifference();
+      setStatus(result.groups ? "พบความต่าง " + result.groups + " จุด" : "ข้อความเหมือนกัน" + (normalize ? " หลังจัดรูปแบบ JSON" : ""), "success");
+    } catch (error) {
+      setStatus("เปรียบเทียบไม่ได้: " + error.message, "error");
+    }
   }
 
   function appendKey(row, key) {
@@ -298,20 +415,99 @@
     }
   }
 
-  toolbarToggle.addEventListener("click", () => {
-    workspaceToolbar.hidden = !workspaceToolbar.hidden;
-    toolbarToggle.setAttribute("aria-expanded", String(!workspaceToolbar.hidden));
-    toolbarToggle.title = workspaceToolbar.hidden ? "แสดงแถบเครื่องมือ" : "ซ่อนแถบเครื่องมือ";
-    toolbarToggle.setAttribute("aria-label", toolbarToggle.title);
+  for (const toggle of toolbarToggles) {
+    toggle.addEventListener("click", () => {
+      workspaceToolbar.hidden = !workspaceToolbar.hidden;
+      for (const button of toolbarToggles) {
+        button.setAttribute("aria-expanded", String(!workspaceToolbar.hidden));
+        button.title = workspaceToolbar.hidden ? "แสดงแถบเครื่องมือ" : "ซ่อนแถบเครื่องมือ";
+        button.setAttribute("aria-label", button.title);
+      }
+      updateToolbarSpace();
+    });
+  }
+  globalThis.addEventListener("resize", () => {
     updateToolbarSpace();
+    setCompareInputsExpanded(!compareInputPanels.hidden);
   });
-  globalThis.addEventListener("resize", updateToolbarSpace);
 
   form.addEventListener("submit", (event) => {
     event.preventDefault();
-    if (currentMode === "base64") convertBase64("encode");
+    if (currentMode === "compare") runCompare();
+    else if (currentMode === "base64") convertBase64("encode");
     else format();
   });
+
+  document.querySelector("#compare-button").addEventListener("click", runCompare);
+  compareInputsToggle.addEventListener("click", () => setCompareInputsExpanded(compareInputPanels.hidden));
+  document.querySelector("#compare-previous").addEventListener("click", () => selectDifference(-1));
+  document.querySelector("#compare-next").addEventListener("click", () => selectDifference(1));
+  document.querySelector("#compare-json").addEventListener("change", invalidateCompare);
+  document.querySelector("#compare-swap").addEventListener("click", () => {
+    const left = compareInputs.left.value;
+    compareInputs.left.value = compareInputs.right.value;
+    compareInputs.right.value = left;
+    invalidateCompare();
+    runCompare();
+  });
+  document.querySelector("#compare-clear").addEventListener("click", () => {
+    compareInputs.left.value = "";
+    compareInputs.right.value = "";
+    invalidateCompare();
+    compareInputs.left.focus();
+  });
+  document.querySelector("#compare-example").addEventListener("click", () => {
+    compareInputs.left.value = '{\n  "order": "ORDER-001",\n  "status": "pending",\n  "items": 2,\n  "channel": "WEB"\n}';
+    compareInputs.right.value = '{\n  "order": "ORDER-001",\n  "status": "completed",\n  "items": 3,\n  "paid": true,\n  "channel": "WEB"\n}';
+    invalidateCompare();
+    runCompare();
+  });
+  for (const [side, input] of Object.entries(compareInputs)) {
+    document.querySelector("#compare-" + side + "-format").addEventListener("click", () => {
+      try {
+        const result = globalThis.JSONFormatter.formatWholeText(input.value, Number(document.querySelector("#indent").value));
+        input.value = result.text;
+        invalidateCompare();
+        setStatus("จัดรูปแบบ" + (side === "left" ? "ต้นฉบับ" : "ข้อความใหม่") + "แล้ว", "success");
+      } catch (error) {
+        input.setAttribute("aria-invalid", "true");
+        setStatus("จัดรูปแบบไม่ได้: " + error.message, "error");
+      }
+      input.focus();
+    });
+    input.addEventListener("input", invalidateCompare);
+    input.addEventListener("keydown", event => {
+      if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+        event.preventDefault();
+        form.requestSubmit();
+      }
+    });
+    const file = document.querySelector("#compare-" + side + "-file");
+    document.querySelector("#compare-" + side + "-import").addEventListener("click", () => file.click());
+    file.addEventListener("change", async () => {
+      try {
+        if (file.files[0]) {
+          input.value = await file.files[0].text();
+          invalidateCompare();
+        }
+      } catch { setStatus("อ่านไฟล์ไม่ได้", "error"); }
+      file.value = "";
+    });
+    document.querySelector("#compare-" + side + "-paste").addEventListener("click", async () => {
+      try {
+        input.value = await navigator.clipboard.readText();
+        invalidateCompare();
+      } catch {
+        input.focus();
+        setStatus("วางอัตโนมัติไม่ได้ กรุณากด Ctrl + V ในช่องข้อความ", "error");
+      }
+    });
+    document.querySelector("#compare-" + side + "-clear").addEventListener("click", () => {
+      input.value = "";
+      invalidateCompare();
+      input.focus();
+    });
+  }
 
   source.addEventListener("input", () => {
     updateSourceCount();
