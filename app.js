@@ -23,6 +23,7 @@
   const jsonPlaceholder = source.placeholder;
   const jsonFileTypes = fileInput.accept;
   const treeLoaders = new WeakMap();
+  const editorStates = new Map();
   let currentMode = "json";
   let outputMode = "json";
   let formattedBlocks = 0;
@@ -134,6 +135,31 @@
   }
 
   function setMode(mode) {
+    if (mode !== currentMode) {
+      if (currentMode !== "compare") {
+        editorStates.set(currentMode, {
+          text: source.value,
+          outputMode,
+          formattedBlocks,
+          hasFormatted,
+          viewerSource,
+          lastAction,
+          blockLabel: blockCount.textContent
+        });
+      }
+      if (mode !== "compare") {
+        const saved = editorStates.get(mode);
+        resetResult();
+        source.value = saved?.text ?? "";
+        outputMode = saved?.outputMode ?? (mode === "json" ? "json" : "text");
+        formattedBlocks = saved?.formattedBlocks ?? 0;
+        hasFormatted = saved?.hasFormatted ?? false;
+        viewerSource = saved?.viewerSource ?? "";
+        lastAction = saved?.lastAction ?? "format";
+        blockCount.textContent = saved?.blockLabel ?? "";
+        updateSourceCount();
+      }
+    }
     currentMode = mode;
     const base64 = mode === "base64";
     const compare = mode === "compare";
