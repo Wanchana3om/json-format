@@ -1,6 +1,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { formatText, minifyText, formatLooseText, formatWholeText, getDocuments, getTree, encodeBase64, decodeBase64 } = require("./formatter.js");
+const { spawnSync } = require("node:child_process");
+const { formatText, minifyText, formatLooseText, formatWholeText, getDocuments, getTree, encodeBase64, decodeBase64, compareText } = require("./formatter.js");
 
 test("formats JSON with nested arrays and empty containers", () => {
   const input = '{"items":[{"ok":true},null,[],{}],"name":"sample"}';
@@ -323,5 +324,91 @@ test("Base64 handles large text without exceeding argument limits", () => {
   const encoded = encodeBase64(text);
   assert.equal(encoded, Buffer.from(text, "utf8").toString("base64"));
   assert.equal(decodeBase64(encoded), text);
+});
+
+test("Compare reports identical and empty text without changes", () => {
+  const empty = compareText("", "");
+  assert.deepEqual(empty.rows, []);
+  assert.equal(empty.groups, 0);
+  const result = compareText("first\nsecond", "first\nsecond");
+  assert.equal(result.groups, 0);
+  assert.deepEqual(result.rows.map(row => row.kind), ["equal", "equal"]);
+});
+
+test("Compare aligns modified lines and counts change groups", () => {
+  const result = compareText("first\nbefore\nlast", "first\nafter\nlast");
+  assert.equal(result.changed, 1);
+  assert.equal(result.added, 0);
+  assert.equal(result.removed, 0);
+  assert.equal(result.groups, 1);
+  assert.deepEqual(result.rows[1], { kind: "changed", left: { text: "before", number: 2, ending: "LF" }, right: { text: "after", number: 2, ending: "LF" }, group: 0 });
+});
+
+test("Compare aligns insertions and deletions with original line numbers", () => {
+  const result = compareText("first\nremoved\nlast\n", "added\nfirst\nlast\n");
+  assert.equal(result.added, 1);
+  assert.equal(result.removed, 1);
+  assert.equal(result.changed, 0);
+  assert.equal(result.groups, 2);
+  assert.deepEqual(result.rows.filter(row => row.left).map(row => row.left.number), [1, 2, 3]);
+  assert.deepEqual(result.rows.filter(row => row.right).map(row => row.right.number), [1, 2, 3]);
+  assert.equal(compareText("", "new").added, 1);
+  assert.equal(compareText("old", "").removed, 1);
+});
+
+test("Compare preserves Unicode and literal HTML text", () => {
+  const left = "\u0e44\u0e17\u0e22\n<script>alert(1)</script>";
+  const result = compareText(left, "\u0e44\u0e17\u0e22\n<img onerror=alert(1)>");
+  assert.equal(result.rows[0].kind, "equal");
+  assert.equal(result.rows[1].left.text, "<script>alert(1)</script>");
+  assert.equal(result.rows[1].right.text, "<img onerror=alert(1)>");
+});
+
+test("Compare optionally formats JSON without hiding key order or numeric precision", () => {
+  const compact = '{"id":90071992547409931234,"id":2,"ok":true}';
+  const formatted = formatText(compact).text;
+  assert.ok(compareText(compact, formatted).groups > 0);
+  const result = compareText(compact, formatted, true);
+  assert.equal(result.groups, 0);
+  assert.ok(result.leftText.includes("90071992547409931234"));
+  assert.ok(result.leftText.includes('"id": 2'));
+  assert.ok(compareText('{"a":1,"b":2}', '{"b":2,"a":1}', true).groups > 0);
+});
+
+test("Compare rejects invalid JSON only when JSON formatting is selected", () => {
+  assert.throws(() => compareText('{"bad":}', '{}', true), SyntaxError);
+  assert.throws(() => compareText('{}', '{bad:1}', true), SyntaxError);
+  assert.doesNotThrow(() => compareText('{"bad":}', 'raw text'));
+});
+
+test("Compare retains differences in line endings and trailing newlines", () => {
+  const result = compareText("line\n", "line");
+  assert.equal(result.changed, 1);
+  assert.equal(result.rows[0].left.ending, "LF");
+  assert.equal(result.rows[0].right.ending, "EOF");
+  assert.equal(compareText("line\r\n", "line\n").changed, 1);
+});
+
+test("Compare limits large results rather than freezing the workspace", () => {
+  assert.throws(() => compareText("x".repeat(2000001), ""), RangeError);
+  assert.throws(() => compareText("same\n".repeat(20001), "same\n".repeat(20001)), RangeError);
+});
+
+test("jsdiff handles patch header line breaks without hanging (CVE-2026-24001)", () => {
+  const script = `
+    const assert = require("node:assert/strict");
+    const diff = require("./diff.js");
+    for (const character of ["\\r", "\\u2028", "\\u2029"]) {
+      const patch = "--- old" + character + "name\\n+++ new" + character + "name\\n@@ -1 +1 @@\\n-old\\n+new\\n";
+      const parsed = diff.parsePatch(patch);
+      assert.equal(parsed.length, 1);
+      assert.equal(parsed[0].oldFileName, "old" + character + "name");
+      assert.equal(parsed[0].newFileName, "new" + character + "name");
+      assert.equal(diff.applyPatch("old\\n", patch), "new\\n");
+    }
+  `;
+  const result = spawnSync(process.execPath, ["--max-old-space-size=32", "-e", script], { cwd: __dirname, encoding: "utf8", timeout: 3000 });
+  assert.ifError(result.error);
+  assert.equal(result.status, 0, result.stderr);
 });
 

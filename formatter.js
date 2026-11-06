@@ -308,7 +308,58 @@
     return new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(bytes);
   }
 
-  const api = { formatText, minifyText, formatLooseText, formatWholeText, getDocuments, getTree, encodeBase64, decodeBase64 };
+  function compareText(left, right, formatJson = false) {
+    if (left.length + right.length > 2000000) throw new RangeError("Compare supports up to 2,000,000 characters. Try a smaller section.");
+    if (formatJson) {
+      JSON.parse(left);
+      JSON.parse(right);
+      left = formatText(left).text;
+      right = formatText(right).text;
+    }
+    const diff = typeof module !== "undefined" && module.exports ? require("./diff.js") : root.Diff;
+    const parts = diff.diffLines(left, right, { timeout: 1000, maxEditLength: 10000 });
+    if (!parts) throw new RangeError("Comparison exceeded the time limit. Try a smaller section.");
+    const rows = [];
+    let leftNumber = 0;
+    let rightNumber = 0;
+    let added = 0;
+    let removed = 0;
+    let changed = 0;
+    let groups = 0;
+    const lines = text => text.match(/[^\n]*\n|[^\n]+$/g) || [];
+    const line = (text, number) => ({ text: text.replace(/\r?\n$/, ""), number, ending: text.endsWith("\r\n") ? "CRLF" : text.endsWith("\n") ? "LF" : "EOF" });
+    for (let partIndex = 0; partIndex < parts.length;) {
+      const part = parts[partIndex];
+      if (!part.added && !part.removed) {
+        for (const text of lines(part.value)) {
+          rows.push({ kind: "equal", left: line(text, ++leftNumber), right: line(text, ++rightNumber), group: null });
+        }
+        partIndex += 1;
+      } else {
+        const deleted = [];
+        const inserted = [];
+        while (partIndex < parts.length && (parts[partIndex].added || parts[partIndex].removed)) {
+          const change = parts[partIndex++];
+          const target = change.removed ? deleted : inserted;
+          for (const text of lines(change.value)) target.push(text);
+        }
+        for (let lineIndex = 0; lineIndex < Math.max(deleted.length, inserted.length); lineIndex += 1) {
+          const previous = lineIndex < deleted.length ? line(deleted[lineIndex], ++leftNumber) : null;
+          const next = lineIndex < inserted.length ? line(inserted[lineIndex], ++rightNumber) : null;
+          const kind = previous && next ? "changed" : previous ? "removed" : "added";
+          if (kind === "changed") changed += 1;
+          else if (kind === "removed") removed += 1;
+          else added += 1;
+          rows.push({ kind, left: previous, right: next, group: groups });
+        }
+        groups += 1;
+      }
+      if (rows.length > 20000) throw new RangeError("Compare supports up to 20,000 result lines. Try a smaller section.");
+    }
+    return { rows, added, removed, changed, groups, leftText: left, rightText: right };
+  }
+
+  const api = { formatText, minifyText, formatLooseText, formatWholeText, getDocuments, getTree, encodeBase64, decodeBase64, compareText };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.JSONFormatter = api;
 })(globalThis);
