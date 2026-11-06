@@ -1,6 +1,6 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { formatText, minifyText, formatLooseText, formatWholeText, getDocuments, getTree } = require("./formatter.js");
+const { formatText, minifyText, formatLooseText, formatWholeText, getDocuments, getTree, encodeBase64, decodeBase64 } = require("./formatter.js");
 
 test("formats JSON with nested arrays and empty containers", () => {
   const input = '{"items":[{"ok":true},null,[],{}],"name":"sample"}';
@@ -291,3 +291,37 @@ test("whole-text format and minify preserve quoted data and support incomplete t
   assert.throws(() => formatWholeText(''), SyntaxError);
   assert.throws(() => formatWholeText('{}', 3), RangeError);
 });
+
+test("encodes and decodes standard Base64 vectors", () => {
+  for (const [text, encoded] of [["", ""], ["f", "Zg=="], ["fo", "Zm8="], ["foo", "Zm9v"], ["Hello", "SGVsbG8="]]) {
+    assert.equal(encodeBase64(text), encoded);
+    assert.equal(decodeBase64(encoded), text);
+  }
+});
+
+test("Base64 preserves UTF-8 Thai, emoji, whitespace, and byte order marks", () => {
+  for (const text of ["\u0e2a\u0e27\u0e31\u0e2a\u0e14\u0e35 \u{1f680}", "\ufeffhello", "  {\r\n  \"name\": \"e\u0301\",\r\n  \"ok\": true\r\n}\t\n\0"]) {
+    const encoded = encodeBase64(text);
+    assert.equal(encoded, Buffer.from(text, "utf8").toString("base64"));
+    assert.equal(decodeBase64(encoded), text);
+  }
+});
+
+test("decodes Base64 with line breaks or omitted padding", () => {
+  assert.equal(decodeBase64(" \tSGVs\r\nbG8=\f "), "Hello");
+  assert.equal(decodeBase64("SGVsbG8"), "Hello");
+});
+
+test("rejects malformed Base64 and invalid UTF-8 instead of corrupting text", () => {
+  for (const text of ["not base64!", "A", "a===", "=QQ=", "SGVsbG8_", "/w==", "wyg="]) {
+    assert.throws(() => decodeBase64(text));
+  }
+});
+
+test("Base64 handles large text without exceeding argument limits", () => {
+  const text = "json format \u0e44\u0e17\u0e22 \u{1f680}\n".repeat(40000);
+  const encoded = encodeBase64(text);
+  assert.equal(encoded, Buffer.from(text, "utf8").toString("base64"));
+  assert.equal(decodeBase64(encoded), text);
+});
+
