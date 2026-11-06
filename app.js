@@ -2,18 +2,18 @@
   "use strict";
 
   const source = document.querySelector("#source");
-  const output = document.querySelector("#output");
   const status = document.querySelector("#status");
   const statusText = document.querySelector("#status-text");
   const copyButton = document.querySelector("#copy-button");
   const downloadButton = document.querySelector("#download-button");
   const blockCount = document.querySelector("#block-count");
-  const emptyState = document.querySelector("#empty-state");
   const tree = document.querySelector("#json-tree");
   const treeSearch = document.querySelector("#tree-search");
   const fileInput = document.querySelector("#file-input");
   const treeLoaders = new WeakMap();
   let outputMode = "json";
+  let hasFormatted = false;
+  let viewerSource = "";
   let currentView = "text";
   let viewerDirty = true;
   let lastAction = "format";
@@ -29,10 +29,11 @@
 
   function updateSourceCount() {
     document.querySelector("#source-count").textContent = source.value.length.toLocaleString("th-TH") + " ตัวอักษร";
+    document.querySelector("#output-count").textContent = (source.value ? source.value.split("\n").length : 0).toLocaleString("th-TH") + " บรรทัด";
   }
 
-  function resetOutput() {
-    output.value = "";
+  function resetResult() {
+    hasFormatted = false;
     tree.replaceChildren();
     treeSearch.value = "";
     document.querySelector("#search-count").textContent = "";
@@ -42,38 +43,39 @@
     copyButton.disabled = true;
     downloadButton.disabled = true;
     blockCount.hidden = true;
-    emptyState.hidden = false;
-    document.querySelector("#output-count").textContent = "0 บรรทัด";
     source.removeAttribute("aria-invalid");
   }
 
   function format(action = "format") {
     lastAction = action;
-    resetOutput();
+    const input = hasFormatted ? viewerSource : source.value;
+    resetResult();
     try {
       const indent = Number(document.querySelector("#indent").value);
       const validate = document.querySelector("#validate-json").checked;
       const api = globalThis.JSONFormatter;
       let result;
       if (document.querySelector("#format-scope").value === "whole") {
-        if (validate) api.getDocuments(source.value);
-        result = api.formatWholeText(source.value, action === "minify" ? 0 : indent);
+        if (validate) api.getDocuments(input);
+        result = api.formatWholeText(input, action === "minify" ? 0 : indent);
       } else {
-        result = !validate ? api.formatLooseText(source.value, action === "minify" ? 0 : indent) : action === "minify" ? api.minifyText(source.value) : api.formatText(source.value, indent);
+        result = !validate ? api.formatLooseText(input, action === "minify" ? 0 : indent) : action === "minify" ? api.minifyText(input) : api.formatText(input, indent);
       }
-      output.value = result.text;
+      source.value = result.text;
+      viewerSource = input;
+      hasFormatted = true;
+      updateSourceCount();
       outputMode = result.mode;
       copyButton.disabled = false;
       downloadButton.disabled = false;
-      emptyState.hidden = true;
       blockCount.textContent = result.blocks + (result.mode === "object" ? " OBJECT" : validate ? " JSON" : " BLOCK");
       blockCount.hidden = !result.blocks;
-      document.querySelector("#output-count").textContent = result.text.split("\n").length.toLocaleString("th-TH") + " บรรทัด";
       setStatus((action === "minify" ? "ย่อแล้ว" : "จัดรูปแบบแล้ว") + " · " + (validate ? (result.mode === "object" ? "Object / MongoDB " : "ข้อมูล ") + result.blocks + " ก้อน" : "ไม่ตรวจโครงสร้าง"), "success");
       if (currentView === "viewer") showView("viewer");
     } catch (error) {
       source.setAttribute("aria-invalid", "true");
       setStatus(source.value.trim() ? "จัดรูปแบบไม่ได้: " + error.message : "กรุณาวาง JSON หรือ log ก่อนจัดรูปแบบ", "error");
+      showView("text");
       source.focus();
     }
   }
@@ -130,7 +132,6 @@
   }
 
   function renderViewer() {
-    const viewerSource = document.querySelector("#format-scope").value === "whole" ? source.value : output.value;
     const documents = globalThis.JSONFormatter.getDocuments(viewerSource);
     const fragment = document.createDocumentFragment();
     documents.forEach((entry, index) => {
@@ -155,9 +156,9 @@
 
   function showView(view) {
     if (view === "viewer") {
-      if (!output.value) {
+      if (!hasFormatted) {
         format();
-        if (!output.value) return;
+        if (!hasFormatted) return;
       }
       try {
         if (viewerDirty) renderViewer();
@@ -203,7 +204,7 @@
   function replaceSource(text) {
     source.value = text;
     updateSourceCount();
-    resetOutput();
+    resetResult();
     showView("text");
     format();
   }
@@ -224,7 +225,7 @@
 
   source.addEventListener("input", () => {
     updateSourceCount();
-    resetOutput();
+    resetResult();
     setStatus("พร้อม");
   });
 
@@ -236,7 +237,7 @@
   });
 
   document.querySelector("#indent").addEventListener("change", () => {
-    if (output.value) format(lastAction);
+    if (hasFormatted) format(lastAction);
   });
 
   document.querySelector("#validate-json").addEventListener("change", () => {
@@ -290,24 +291,23 @@
     try {
       replaceSource(await navigator.clipboard.readText());
     } catch {
+      showView("text");
       source.focus();
-      setStatus("วางอัตโนมัติไม่ได้ กรุณากด Ctrl + V ในต้นฉบับ", "error");
+      setStatus("วางอัตโนมัติไม่ได้ กรุณากด Ctrl + V ในช่องข้อความ", "error");
     }
   });
 
   document.querySelector("#clear-button").addEventListener("click", () => {
     source.value = "";
     updateSourceCount();
-    resetOutput();
+    resetResult();
     showView("text");
     setStatus("พร้อม");
     source.focus();
   });
 
   document.querySelector("#example-button").addEventListener("click", () => {
-    source.value = '2026-11-02T13:46:12.907+07:00 [INFO] [APIInterceptor] INCOMING|METHOD|POST|PATHNAME|/action/queryOrderInformation|BODY|{"transactionID":"demo","orderNo":"ORDER-001","mobileNo":"","referChannel":"WEB"}|HEADERS|{"host":"api.example.test","content-type":"application/json","x-request-id":"demo-request-001"}';
-    updateSourceCount();
-    format();
+    replaceSource('2026-11-02T13:46:12.907+07:00 [INFO] [APIInterceptor] INCOMING|METHOD|POST|PATHNAME|/action/queryOrderInformation|BODY|{"transactionID":"demo","orderNo":"ORDER-001","mobileNo":"","referChannel":"WEB"}|HEADERS|{"host":"api.example.test","content-type":"application/json","x-request-id":"demo-request-001"}');
   });
 
   document.querySelector("#wrap-button").addEventListener("click", (event) => {
@@ -315,11 +315,10 @@
     const enabled = button.getAttribute("aria-pressed") !== "true";
     button.setAttribute("aria-pressed", String(enabled));
     source.wrap = enabled ? "soft" : "off";
-    output.wrap = enabled ? "soft" : "off";
   });
 
   copyButton.addEventListener("click", async () => {
-    const text = output.value;
+    const text = source.value;
     if (!text) return;
     try {
       if (!navigator.clipboard || !globalThis.isSecureContext) throw new Error("Clipboard unavailable");
@@ -327,8 +326,8 @@
       setStatus("คัดลอกผลลัพธ์แล้ว", "success");
     } catch {
       showView("text");
-      output.focus();
-      output.select();
+      source.focus();
+      source.select();
       try {
         if (!document.execCommand("copy")) throw new Error("Copy unavailable");
         setStatus("คัดลอกผลลัพธ์แล้ว", "success");
@@ -339,9 +338,9 @@
   });
 
   downloadButton.addEventListener("click", () => {
-    if (!output.value) return;
+    if (!source.value) return;
     const isJson = outputMode === "json";
-    const blob = new Blob([output.value], { type: isJson ? "application/json;charset=utf-8" : "text/plain;charset=utf-8" });
+    const blob = new Blob([source.value], { type: isJson ? "application/json;charset=utf-8" : "text/plain;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
