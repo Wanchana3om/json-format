@@ -59,7 +59,7 @@ h1 { margin: 0; font-family: Bahnschrift, "Leelawadee UI", sans-serif; font-size
 .mode-choice input { position: absolute; width: 1px; height: 1px; margin: 0; opacity: 0; }
 .mode-option { display: flex; align-items: center; justify-content: center; gap: 7px; width: 100%; min-height: 34px; padding: 0 12px; border-radius: 3px; color: #64716d; font-size: 12px; white-space: nowrap; }
 .mode-option svg { width: 16px; height: 16px; flex-shrink: 0; }
-.mode-choice input:checked + .mode-option { color: var(--accent); background: #fff; box-shadow: 0 1px 3px #25342b14; }
+.mode-choice input:checked + .mode-option { color: #fff; background: var(--accent-dark); box-shadow: 0 1px 3px #25342b14; }
 .mode-choice input:focus-visible + .mode-option { outline: 2px solid var(--accent); outline-offset: 2px; }
 .local-badge { display: flex; justify-self: end; align-items: center; gap: 7px; color: var(--muted); font: 10px var(--mono); white-space: nowrap; }
 .local-badge svg { width: 15px; height: 15px; color: var(--accent); }
